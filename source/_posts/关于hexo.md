@@ -1,11 +1,11 @@
 ---
-title: 关于hexo
+title: 关于hexo
 categories:
-    - 工具
-tags: 
-    - hexo
-    - 总结
-    - 工具使用
+    - 工具
+tags: 
+    - hexo
+    - 总结
+    - 工具使用
 ---
 
 ## 为什么要写这篇文章
