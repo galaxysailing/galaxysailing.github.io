@@ -1,8 +1,8 @@
 ---
-title: 关于hexo
+title: hexo总结
 categories:
     - 工具
-tags: 
+tags:
     - hexo
     - 总结
     - 工具使用
@@ -21,15 +21,19 @@ tags:
 
 接下来就是敲几个指令
 
+```shell
+$ npm install -g hexo-cli # 安装hexo cli
+$ hexo init blog # 创建blog文件夹 并初始化文件目录
+$ cd blog 
+$ npm install 
 ```
-$ npm install -g hexo-cli
-$ hexo init blog
-$ cd blog
-$ npm install
-```
+> 如果`npm install`过慢可以安装淘宝镜像 
+`npm install -g cnpm --registry=https://registry.npm.taobao.org`，
+再通过`cnpm nstall`来安装依赖包
+
 创建后这是`blog`文件夹下的目录
 
-```
+```shell
 .
 ├── _config.yml
 ├── package.json
@@ -39,3 +43,11 @@ $ npm install
 |   └── _posts
 └── themes
 ```
+进入 blog 文件夹目录，使用以下命令
+
+```shell
+$ hexo s # 或者 hexo serve
+```
+通过浏览器访问`http://localhost:4000`就能看到搭建好的博客了
+
+## Github Pages
