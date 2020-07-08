@@ -4,8 +4,8 @@ date: 2020-07-06 23:22:07
 categories:
     - Unity Shader
 tags:
+    - Unity
     - Unity Shader
-    - ShaderLab
     - 后处理
 mathjax: true
 ---
@@ -16,12 +16,12 @@ mathjax: true
 
 <!-- more -->
 
+>本篇博客[项目场景](https://github.com/galaxysailing/unity-shader-note/tree/master/Assets/Scenes/Post-Processing)
+
 ### 1 Unity 中的后处理
 
 对于Unity的内置渲染管线，官方对后处理有这样一段描述。
-> 	The Built-in Render Pipeline does not include a post-processing solution by default. To use post-processing 
-effects with the Built-in Render Pipeline, download the Post-Processing Version 2 package. For information on using 
-post-processing effects in the Built-in Render Pipeline, see the Post-Processing Version 2 documentation.
+>The Built-in Render Pipeline does not include a post-processing solution by default. To use post-processing effects with the Built-in Render Pipeline, download the Post-Processing Version 2 package. For information on using post-processing effects in the Built-in Render Pipeline, see the Post-Processing Version 2 documentation.
  
 简单直译过来就是Unity的内置管线对于后处理没有默认的解决方案。介绍后处理和常见效果的实现也是本文的意图。
 
@@ -30,8 +30,9 @@ post-processing effects in the Built-in Render Pipeline, see the Post-Processing
 ```cs
 MonoBehaviour::void OnRenderImage(RenderTexture src,RenderTexture dest);
 ```
-Unity把当前渲染的结果存储在参数一 `src` 中，通过函数中的一系列操作后，再把目标渲染到参数二 `dest` 中，最后将 `dest` 渲染到屏幕上。在这个函数中我们需要调用**Graphics.Blit**来处理：
-```cs
+Unity把当前渲染的结果存储在参数一 src 中，通过函数中的一系列操作后，再把目标渲染到参数二 dest 中，最后将 dest 渲染到屏幕上。在这个函数中我们需要调用 Graphics.Blit 来处理：
+
+```c#
 // 1. 如果dest为null，直接将结果渲染到屏幕上
 Graphics.Blit(Texture src,RenderTexture dest); 
 // 2. mat会对src进行后处理，pass为-1则是一次调用Shader的所有Pass，否则调用给定索引的Pass
@@ -40,10 +41,12 @@ Graphics.Blit(Texture src,RenderTexture dest, int pass = -1);
 ```
 
 ### 3 Unity实现后处理效果
-在相机上添加一个用于屏幕后处理的脚本。在这个脚本里编写`OnRenderImage`并调用`Graphics.Blit`，用指定的Shader对纹理进行处理。
+
+在相机上添加一个用于屏幕后处理的脚本。在这个脚本里编写 OnRenderImage 并调用 Graphics.Blit ，用指定的Shader对纹理进行处理。
 
 首先，我们定义一个父类来处理摄像机的shader。
-```cs
+
+``` cs
 public class PostProcessBase : MonoBehaviour
 {
     protected Material CheckShaderAndCreateMaterial(Shader shader, Material material)
@@ -62,14 +65,15 @@ public class PostProcessBase : MonoBehaviour
     }
 }
 ```
-我们在后处理都要通过父类的`CheckShaderAndCreateMaterial`方法来检查`material`类是否正确。下面是挂载在相机上处理后处理shader的样板代码
 
-```cs
+我们在后处理都要通过父类的 CheckShaderAndCreateMaterial 方法来检查 material 类是否正确。下面是挂载在相机上处理后处理shader的样板代码
+
+``` cs
 public class PostProcessScript : PostProcessBase {
 	public Shader shader;
 
 	private Material mat;
-
+	
 	public Material material
     {
         get
@@ -78,7 +82,7 @@ public class PostProcessScript : PostProcessBase {
             return mat;
         }
     }
-
+	
 	void OnRenderImage(RenderTexture src, RenderTexture dest){
 		if(material == null){
 			// 如果材质为空直接返回
@@ -92,7 +96,7 @@ public class PostProcessScript : PostProcessBase {
 
 ```
 
-`shader`中要关闭深度写入和面剔除，由于是对纹理进行操作，没必要进行深度写入和面剔除。深度测试时让所有的片元通过。
+shader 中要关闭深度写入和面剔除，由于是对纹理进行操作，没必要进行深度写入和面剔除。深度测试时让所有的片元通过。
 
 ```
 ZTest Always Cull Off ZWrite Off
@@ -132,7 +136,7 @@ v2f vert(appdata_img v) {
 ```glsl
 fixed4 frag(v2f i) : SV_TARGET{
 	fixed4 renderTex = tex2D(_MainTex, i.uv);
-
+	
 	// apply brightness
 	fixed3 finalColor = renderTex.rgb * _Brightness;
 
@@ -145,7 +149,7 @@ fixed4 frag(v2f i) : SV_TARGET{
 	// apply contrast
 	fixed3 avgColor = fixed3(0.5,0.5,0.5);
 	finalColor = lerp(avgColor, finalColor, _Contrast);
-
+	
 	return finalColor;
 }
 ```
@@ -155,11 +159,11 @@ fixed4 frag(v2f i) : SV_TARGET{
 - **亮度：**图像中的RGB各个值越大，表示越亮，反之则越暗
 `texColor * _Brightness`像素的各个颜色同比例缩放，表示了亮度的增减
 
-- **饱和度：**指色彩的鲜艳程度，饱和度取决于该色中**含色成分**和**消色成分**（灰度）的比例。即含色成分越高，饱和度越高；消色成分越高，饱和度越低。对于**纯的颜色都是高饱和度**，如鲜红，鲜绿等。但如果我们对其**混杂上白色，灰色或其他色调的颜色，是不饱和的颜色**，如粉红，黄褐等。完全不饱和根本没有色调，如灰色。
-`luminance`表示像素的亮度，`0.2125 * renderTex.r + 0.7154 * renderTex.g + 0.0721 * renderTex.b`表示人眼对不同颜色的敏感度（亮度相同的**蓝光**和**绿光**，**蓝光**看起来会更暗）。当`_Saturation<1`时，整体的色调会偏灰，当`_Saturation>1`时，色调会比原来的更鲜艳
+- **饱和度：**指色彩的鲜艳程度，饱和度取决于该色中**含色成分**和**消色成分**（灰度）的比例。即含色成分越高，饱和度越高；消色成分越高，饱和度越低。对于纯的颜色都是高饱和度，如鲜红，鲜绿等。但如果我们对其混杂上白色，灰色或其他色调的颜色，是不饱和的颜色，如粉红，黄褐等。完全不饱和根本没有色调，如灰色。
+`luminance` 表示像素的亮度，`0.2125 * renderTex.r + 0.7154 * renderTex.g + 0.0721 * renderTex.b`表示人眼对不同颜色的敏感度（亮度相同的蓝光和绿光，蓝光看起来会更暗）。当`_Saturation<1`时，整体的色调会偏灰，当`_Saturation>1`时，色调会比原来的更鲜艳
 - **对比度：**表示一张图片的明暗差异，即对比度越高，亮的像素越亮，暗的像素越暗。
-当`_Contrast>1`时，`_Contrast*finalColor<(_Contrast-1)*avgColor`的结果的像素会变得更暗。反之，会更亮
-当`_Contrast<1`时，总体上会趋向于灰色
+当 `_Contrast > 1` 时，`_Contrast*finalColor < (_Contrast - 1) * avgColor`的结果的像素会变得更暗。反之，会更亮
+当 `_Contrast < 1` 时，总体上会趋向于灰色
 
 
 #### 4.2 边缘检测
@@ -169,7 +173,7 @@ fixed4 frag(v2f i) : SV_TARGET{
 ##### 4.2.1 什么是卷积
 
 简单来说，首先取一个**n * n的卷积矩阵(Convolution Matrix)，也叫核**，
-矩阵的中心为当前像素的权重，矩阵周围则是中心像素边上的像素。**卷积**就是将像素**乘**矩阵对应的**权重**进行**作和**。
+矩阵的中心为当前像素的权重，矩阵周围则是中心像素边上的像素。卷积就是将像素乘矩阵对应的权重进行作和。
 
 ![卷积](https://galaxysailing-blog.oss-cn-shanghai.aliyuncs.com/img/2020/07/06/20200706231751.png)
 
@@ -219,6 +223,7 @@ G_{y}  = \begin{bmatrix}
 1 & 0 
 \end{bmatrix}  
 $$
+
 它们包含了两个方向，分别检测水平和垂直上的边缘信息。对算子进行遍历，分别对像素的水平和垂直信息进行卷积。下列是卷积公式：
 
 $$
@@ -235,6 +240,7 @@ $$
 关于更详细的算子可以看[几种图像边缘检测算子](https://zhuanlan.zhihu.com/p/56728333)
 
 ##### 4.2.3 顶点着色器
+
 ```glsl
 
 sampler2D _MainTex;
@@ -291,6 +297,7 @@ half Sobel(v2f i){
 	half texColor;
     half edgeX = 0;
     half edgeY = 0;
+
     // 卷积操作
 	for(int it = 0; it < 9; ++it){
 		texColor = luminance(tex2D(_MainTex, i.uv + i.offset[it]));
@@ -319,6 +326,7 @@ fixed4 frag (v2f i) : SV_Target
 #### 4.3 模糊
 
 后处理模糊可以通过**均值模糊**和**中值模糊**进行实现。**均值模糊**通过卷积实现想下面这样的核可以实现：
+
 $$
 kernel = \begin{bmatrix} 
 1 & 2 & 1 \\
@@ -326,16 +334,20 @@ kernel = \begin{bmatrix}
 1 & 2 & 1
 \end{bmatrix}  /16
 $$
+
 **中值模糊**将选择区域的像素进行排序，选择中值替换掉原来的颜色。
 
 ##### 4.3.1 高斯模糊
 
 高斯模糊同样使用了卷积，它使用的核被称为**高斯核**，他由以下公式获得：
+
 $$
 G(x,y) = \frac{1}{2\pi \sigma^{2}}e^{-\frac{x^{2}+y^{2}}{2\sigma^{2}}}
 $$
+
 其中$\sigma$为标准差，通常取值为1，x 和 y 对应当前位置到核中心的整数距离
 高斯方程表示了领域每个像素对中心像素的影响程度：距离越近，影响越大。本节，我们用以下的高斯核进行卷积：
+
 $$
 kernel = \begin{bmatrix} 
 0.0030 & 0.0133 & 0.0219 & 0.0133 & 0.0030 \\
@@ -345,11 +357,12 @@ kernel = \begin{bmatrix}
 0.0030 & 0.0133 & 0.0219 & 0.0133 & 0.0030
 \end{bmatrix}
 $$
+
 可以发现矩阵的值和距离有关，因此加上出于性能考虑，我们需要把这个二维的高斯核拆解成两个一维核先后对图像进行卷积。这样，采样次数从 `N * N * W * H`  变成了 `2 * N * W * H`，我们可以先后调用两个Pass，第一个Pass用竖直方向的高斯核对图像进行卷积，第二个Pass用水平方向的高斯核。
 
 ##### 4.3.2 脚本
 
-对图像我们可以通过多次卷积迭代，获得更模糊的图像。`OnRenderImage`的代码如下：
+对图像我们可以通过多次卷积迭代，获得更模糊的图像。OnRenderImage 的代码如下：
 
 ```cs
 // 迭代次数
@@ -458,6 +471,7 @@ fixed4 fragBlur(v2f i) : SV_TARGET{
 	return fixed4(sum, 1.0);
 }
 ```
+
 片元着色器做卷积操作
 
 ##### 4.3.5 最后一步
@@ -544,7 +558,6 @@ void OnRenderImage(RenderTexture src, RenderTexture dest)
 
 上述代码在原有的高斯模糊的基础上，先设置了提取亮区的阈值，接着进行高斯模糊，最后再设置纹理，和原图进行叠加
 
-
 ##### 4.4.2 处理光区
 
 ```glsl
@@ -582,7 +595,7 @@ fixed4 fragExtractBright(v2f i): SV_TARGET{
 
 ##### 4.4.3 混合
 
-```glsl
+```cpp
 sampler2D _Bloom;
 
 struct v2fBloom{
@@ -616,7 +629,7 @@ fixed4 fragBloom(v2fBloom i) : SV_TARGET{
 
 ##### 4.4.4 最后一步
 
-```glsl
+```cpp
 ZTest Always Cull Off ZWrite Off
 
 Pass {
@@ -641,7 +654,134 @@ Pass {
 }
 ```
 
+#### 4.5 运动模糊
 
+实现运动模糊通常有几种方法：
+- **累计缓存**来混合多张连续的纹理
+- **速度缓存**存储各个像素当前的运动速度，利用值来决定模糊方向和大小
+
+##### 4.5.1 简单的运动模糊实现
+
+```cs
+// 模糊参数，拖尾效果
+[Range (0.0f, 0.9f)]
+public float blurAmount = 0.5f;
+
+// 保存之前图像叠加的结果
+private RenderTexture accumulationTexture;
+
+// 在场景运行时可以关闭运动模糊的效果
+void OnDisable () {
+	DestroyImmediate (accumulationTexture);
+}
+
+void OnRenderImage (RenderTexture src, RenderTexture dest) {
+	if (material == null) {
+		Graphics.Blit (src, dest);
+		return;
+	}
+
+	if (accumulationTexture == null || accumulationTexture.width != src.width || accumulationTexture.height != src.height) {
+		DestroyImmediate (accumulationTexture);
+		accumulationTexture = new RenderTexture(src.width, src.height, 0);
+		// 不回保存到场景中
+		accumulationTexture.hideFlags = HideFlags.HideAndDontSave;
+		Graphics.Blit (src, accumulationTexture);
+	}
+	
+	// 保存纹理不被Unity清除，使Unity不报警告
+	accumulationTexture.MarkRestoreExpected ();
+
+	material.SetFloat ("_BlurAmount", 1.0f - blurAmount);
+
+	Graphics.Blit (src, accumulationTexture, material);
+	Graphics.Blit (accumulationTexture, dest);
+}
+```
+
+除了第一帧，在OnRenderIamge开始时，accumulationTexture存储了当前帧之前帧的纹理混合。具体是怎么混合的，我们看一下shader:
+
+```glsl
+sampler2D _MainTex;
+fixed _BlurAmount;
+
+struct v2f {
+	float4 pos : SV_POSITION;
+	half2 uv : TEXCOORD0;
+};
+
+v2f vert(appdata_img v){
+	v2f o;
+	// 顶点MVP必须要做，否则会得到错误的结果
+	o.pos = UnityObjectToClipPos(v.vertex);
+	o.uv = v.texcoord;
+	return o;
+}
+
+// 处理纹理RGB通道，最新一帧的alpha值为_BlurAmount
+fixed4 fragRGB(v2f i) : SV_TARGET {
+	return fixed4(tex2D(_MainTex, i.uv).rgb, _BlurAmount);
+}
+
+half4 fragA (v2f i) : SV_TARGET {
+	return tex2D(_MainTex, i.uv);
+}
+
+ENDCG
+
+ZTest Always Cull Off ZWrite Off
+
+Pass {
+	// 当前帧rgb比例为_BlurAmount，帧缓冲为 1 - _BlurAmount
+	Blend SrcAlpha OneMinusSrcAlpha
+
+	ColorMask RGB
+
+	CGPROGRAM
+	#pragma vertex vert
+	#pragma fragment fragRGB
+	ENDCG
+}
+
+// 第二个Pass想不明白为什么只将当前帧的alpha值取100%混合到帧缓冲中
+// 如果我把fragA的alpha值取0，按理结果应该是完全透明的，实际上并没有影响
+Pass {
+	Blend One Zero
+
+	ColorMask A
+
+	CGPROGRAM
+	#pragma vertex vert
+	#pragma fragment fragA
+	ENDCG
+}
+```
+
+我刚开始看这段代码的时候担心，accumulateTexture会累积越来越多的画面(纹理)，会对后面的画面产生影响，而实际上并没有，产生影响的只有当前帧的前面几帧的画面。
+后来，我给BlurAmount取了一些值来说明这个现象。
+- 当 `BlurAmount = 0.5` 时，跑这个场景的时候，基本上是看不到前面几帧的“残影”。我们取当前帧为第x帧，根据着色器代码推算：
+	- 第x帧，rgb比例为$ 0.5 $
+	- 第x-1帧，rgb比例为$ 0.5^2 =+ 0.25$
+	- 第x-10帧，rgb比例为$ 0.5^{10}  \approx 0.00098$
+	
+由此可见仅仅当往前推10帧，已经被“稀释”到了0.1%不到，所以感受不到残影是理所当然的。我们再看看另外一种残影比较明显的情况
+- 当 `BlurAmount = 0.9` 时，这个时候场景的残影非常明显。同理我们取当前帧为第x帧：
+	- 第x帧，rgb比例为$ 0.1 $
+	- 第x-10帧，rgb比例为$ 0.1 * 0.9^{9} \approx 0.04$
+	- 第x-30帧，rgb比例为$ 0.1 * 0.9^{29} \approx 0.005 $
+	
+显而易见前30帧在纹理中还是有一定比例的。
+
+其实，可以再换个思路来观察残影的原理，修改上面的脚本：
+
+```cs
+if (accumulationTexture == null || accumulationTexture.width != src.width ||
+            accumulationTexture.height != src.height) {
+            ...
+	Graphics.Blit (src, accumulationTexture,material);
+}
+```
+当Blur Amount为0.9，运行场景，可以看到一个由黑到亮的过程，即纹理累积的过程。反之Blur Amount为0时，就观察不到这个过程。
 
 ### 5 参考资料
 
