@@ -24,7 +24,7 @@ mathjax: true
 实际上这个深度值并不是均匀分布的，这个深度值是依据下列公式计算：
 
 $$
-depth = \frac{\frac{1}{z}-\frac{1}{near}}{\frac{1}{near}-\frac{1}{far}}
+depth = \frac{\frac{1}{z}-\frac{1}{near}}{\frac{1}{far}-\frac{1}{near}}
 $$
 
 这个 z 值是**观察空间(view space)**下 $z$ 分量的相反数（由于观察空间为右手坐标系）。深度值和 $\frac{1}{z}$ 成正比，函数图如下所示：
